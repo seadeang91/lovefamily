@@ -6,6 +6,11 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* iOS Safari 자동 확대 방지: input font-size가 16px 미만이면 탭 시 화면이 확대됨 */
+input, textarea, select {
+  font-size: 16px !important;
+}
+
 body {
   @apply bg-white text-gray-900;
 }
