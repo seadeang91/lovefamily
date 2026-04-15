@@ -1,16 +1,28 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { setDoc, doc, serverTimestamp } from 'firebase/firestore'
+import { db } from './lib/firebase'
 import { useAuth } from './hooks/useAuth'
 import LoginPage from './pages/LoginPage'
 import CalendarPage from './pages/CalendarPage'
 import GroceriesPage from './pages/GroceriesPage'
 import Layout from './components/Layout'
-import NicknameModal from './components/NicknameModal'
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
+
+  useEffect(() => {
+    if (user?.displayName) {
+      setDoc(doc(db, 'members', user.uid), {
+        nickname: user.displayName,
+        email: user.email,
+        updatedAt: serverTimestamp()
+      }, { merge: true })
+    }
+  }, [user?.uid, user?.displayName])
+
   if (loading) return <div className="flex items-center justify-center h-screen text-[#F8BD0B] text-lg">🌼 로딩 중...</div>
   if (!user) return <Navigate to="/login" replace />
-  if (!user.displayName) return <NicknameModal />
   return children
 }
 

@@ -2,20 +2,21 @@ import { useState } from 'react'
 import { updateProfile } from 'firebase/auth'
 import { auth } from '../lib/firebase'
 
-export default function NicknameModal() {
+export default function NicknameModal({ onConfirm }) {
+  const currentNickname = auth.currentUser?.displayName || ''
   const [nickname, setNickname] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
   async function handleSubmit(e) {
     e.preventDefault()
-    if (!nickname.trim()) return
+    const finalNickname = nickname.trim() || currentNickname
+    if (!finalNickname) return
     setSubmitting(true)
     try {
-      await updateProfile(auth.currentUser, { displayName: nickname.trim() })
-      // force re-render by reloading user
+      await updateProfile(auth.currentUser, { displayName: finalNickname })
       await auth.currentUser.reload()
-      window.location.reload()
+      onConfirm()
     } catch {
       setError('저장에 실패했습니다. 다시 시도해주세요.')
       setSubmitting(false)
@@ -33,7 +34,7 @@ export default function NicknameModal() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <input
             type="text"
-            placeholder="예: 엄마, 아빠, 딸"
+            placeholder={currentNickname || '예: 엄마, 아빠, 딸'}
             value={nickname}
             onChange={(e) => setNickname(e.target.value)}
             maxLength={10}
@@ -43,10 +44,10 @@ export default function NicknameModal() {
           {error && <p className="text-red-500 text-sm">{error}</p>}
           <button
             type="submit"
-            disabled={submitting || !nickname.trim()}
+            disabled={submitting || (!nickname.trim() && !currentNickname)}
             className="w-full bg-[#F8BD0B] hover:opacity-80 text-gray-800 font-semibold py-3 rounded-xl transition disabled:opacity-50"
           >
-            {submitting ? '저장 중...' : '저장하기'}
+            {submitting ? '저장 중...' : '확인'}
           </button>
         </form>
       </div>

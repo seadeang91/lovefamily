@@ -14,6 +14,11 @@ export default function GroceriesPage() {
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  // 댓글 state
+  const [openCommentId, setOpenCommentId] = useState(null)
+  const [commentsMap, setCommentsMap] = useState({})
+  const [commentInput, setCommentInput] = useState('')
+
   useEffect(() => {
     const q = query(collection(db, 'groceries'), orderBy('createdAt', 'desc'))
     const unsub = onSnapshot(q, (snap) => {
@@ -21,6 +26,17 @@ export default function GroceriesPage() {
     })
     return unsub
   }, [])
+
+  useEffect(() => {
+    if (!openCommentId) return
+    const q = query(collection(db, 'groceries', openCommentId, 'comments'), orderBy('createdAt'))
+    return onSnapshot(q, (snap) => {
+      setCommentsMap((prev) => ({
+        ...prev,
+        [openCommentId]: snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+      }))
+    })
+  }, [openCommentId])
 
   async function handleAdd(e) {
     e.preventDefault()
@@ -57,6 +73,26 @@ export default function GroceriesPage() {
     await Promise.all(checked.map((i) => deleteDoc(doc(db, 'groceries', i.id))))
   }
 
+  async function handleAddComment(itemId) {
+    if (!commentInput.trim()) return
+    await addDoc(collection(db, 'groceries', itemId, 'comments'), {
+      text: commentInput.trim(),
+      createdBy: user.email,
+      createdByName: user.displayName || user.email,
+      createdAt: Timestamp.now()
+    })
+    setCommentInput('')
+  }
+
+  function toggleComment(id) {
+    if (openCommentId === id) {
+      setOpenCommentId(null)
+    } else {
+      setOpenCommentId(id)
+      setCommentInput('')
+    }
+  }
+
   const checkedCount = items.filter((i) => i.checked).length
 
   return (
@@ -68,7 +104,7 @@ export default function GroceriesPage() {
           <p className="text-xs text-gray-400 mt-0.5">{items.length}개 항목 · {checkedCount}개 완료</p>
         </div>
         <div className="flex gap-2">
-          {checkedCount > 0 && (
+          {checkedCount > 0 && user?.email === 'seadeang91@gmail.com' && (
             <button onClick={clearChecked} className="text-xs text-red-400 border border-red-200 px-3 py-1.5 rounded-full">
               완료 삭제
             </button>
@@ -120,29 +156,70 @@ export default function GroceriesPage() {
       ) : (
         <div className="space-y-2">
           {items.map((item) => (
-            <div
-              key={item.id}
-              className={`bg-white rounded-2xl border px-4 py-3 flex items-center gap-3 shadow-sm transition ${
-                item.checked ? 'opacity-50 border-gray-100' : 'border-[#F8BD0B]'
-              }`}
-            >
-              <button
-                onClick={() => toggleCheck(item)}
-                className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition ${
-                  item.checked ? 'text-gray-800' : 'border-gray-300'
+            <div key={item.id}>
+              <div
+                className={`bg-white rounded-2xl border px-4 py-3 flex items-center gap-3 shadow-sm transition ${
+                  item.checked ? 'opacity-50 border-gray-100' : 'border-[#F8BD0B]'
                 }`}
-                style={item.checked ? { backgroundColor: '#F8BD0B', borderColor: '#F8BD0B' } : {}}
               >
-                {item.checked && <span className="text-xs font-bold">✓</span>}
-              </button>
-              <div className="flex-1 min-w-0">
-                <p className={`text-sm font-medium ${item.checked ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-                  {item.name}
-                  {item.qty && <span className="text-gray-400 font-normal ml-1">({item.qty})</span>}
-                </p>
-                <p className="text-xs text-gray-400 mt-0.5">{item.createdByName}</p>
+                <button
+                  onClick={() => toggleCheck(item)}
+                  className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition ${
+                    item.checked ? 'text-gray-800' : 'border-gray-300'
+                  }`}
+                  style={item.checked ? { backgroundColor: '#F8BD0B', borderColor: '#F8BD0B' } : {}}
+                >
+                  {item.checked && <span className="text-xs font-bold">✓</span>}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm font-medium ${item.checked ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+                    {item.name}
+                    {item.qty && <span className="text-gray-400 font-normal ml-1">({item.qty})</span>}
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">{item.createdByName}</p>
+                </div>
+                <button
+                  onClick={() => toggleComment(item.id)}
+                  className={`text-lg leading-none transition ${openCommentId === item.id ? 'text-purple-400' : 'text-gray-300 hover:text-purple-400'}`}
+                >
+                  💬
+                </button>
+                <button onClick={() => handleDelete(item.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none">×</button>
               </div>
-              <button onClick={() => handleDelete(item.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none">×</button>
+
+              {/* 댓글 패널 */}
+              {openCommentId === item.id && (
+                <div className="bg-purple-50 rounded-2xl border border-purple-200 p-3 mt-1 space-y-2">
+                  {(commentsMap[item.id] || []).length === 0 ? (
+                    <p className="text-xs text-gray-400 text-center py-1">아직 댓글이 없습니다</p>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {(commentsMap[item.id] || []).map((c) => (
+                        <div key={c.id} className="text-xs text-gray-600">
+                          <span className="font-semibold text-purple-600">{c.createdByName}</span>
+                          <span className="text-gray-400 mx-1">·</span>
+                          {c.text}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex gap-2 pt-1">
+                    <input
+                      value={commentInput}
+                      onChange={(e) => setCommentInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleAddComment(item.id)}
+                      placeholder="댓글 입력..."
+                      className="flex-1 border border-purple-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300"
+                    />
+                    <button
+                      onClick={() => handleAddComment(item.id)}
+                      className="bg-[#c8b4f0] hover:opacity-80 text-gray-800 px-3 py-1.5 rounded-xl text-xs font-medium"
+                    >
+                      등록
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>

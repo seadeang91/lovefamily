@@ -1,26 +1,26 @@
+import { useState } from 'react'
 import { Outlet, NavLink } from 'react-router-dom'
-import { signOut } from 'firebase/auth'
-import { auth } from '../lib/firebase'
 import { useAuth } from '../hooks/useAuth'
+import NicknameModal from './NicknameModal'
 
 export default function Layout() {
   const { user } = useAuth()
+  const [showNickname, setShowNickname] = useState(false)
 
   return (
     <div className="min-h-screen flex flex-col bg-white">
       {/* Header */}
-      <header className="bg-[#fff9be] text-gray-800 px-4 py-3 flex items-center justify-between shadow-sm">
+      <header className="bg-[#ede7f6] text-gray-800 px-4 py-3 flex items-center justify-between shadow-sm">
         <h1 className="text-lg font-bold">🐱 Love Family</h1>
-        <div className="flex items-center gap-3">
-          <span className="text-sm font-medium">{user?.displayName}</span>
-          <button
-            onClick={() => signOut(auth)}
-            className="text-xs bg-[#FFEED0] hover:opacity-80 text-gray-700 px-3 py-1 rounded-full font-medium"
-          >
-            로그아웃
-          </button>
-        </div>
+        <button
+          onClick={() => setShowNickname(true)}
+          className="text-xs bg-[#d9cff0] hover:opacity-80 text-gray-700 px-3 py-1 rounded-full font-medium"
+        >
+          {user?.displayName} ✏️
+        </button>
       </header>
+
+      {showNickname && <NicknameModal onConfirm={() => setShowNickname(false)} />}
 
       {/* Content */}
       <main className="flex-1 overflow-y-auto pb-20">

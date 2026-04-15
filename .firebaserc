@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "lovefamily-3943e"
-  }
+    "default": "lovefamily-3943e",
+    "lovefamily_app": "lovefamily-3943e"
+  },
+  "targets": {},
+  "etags": {}
 }
