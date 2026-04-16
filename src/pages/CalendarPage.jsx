@@ -7,6 +7,7 @@ import { db } from '../lib/firebase'
 import { useAuth } from '../hooks/useAuth'
 import dayjs from 'dayjs'
 import 'dayjs/locale/ko'
+import { Sun, Moon } from 'lucide-react'
 
 dayjs.locale('ko')
 
@@ -82,15 +83,18 @@ export default function CalendarPage() {
   }, [user?.displayName])
 
   useEffect(() => {
-    if (!openCommentId) return
-    const q = query(collection(db, 'events', openCommentId, 'comments'), orderBy('createdAt'))
-    return onSnapshot(q, (snap) => {
-      setCommentsMap((prev) => ({
-        ...prev,
-        [openCommentId]: snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      }))
+    if (events.length === 0) return
+    const unsubs = events.map((ev) => {
+      const q = query(collection(db, 'events', ev.id, 'comments'), orderBy('createdAt'))
+      return onSnapshot(q, (snap) => {
+        setCommentsMap((prev) => ({
+          ...prev,
+          [ev.id]: snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        }))
+      })
     })
-  }, [openCommentId])
+    return () => unsubs.forEach((u) => u())
+  }, [events])
 
   useEffect(() => {
     setDutyStartDate(selectedDate)
@@ -109,7 +113,15 @@ export default function CalendarPage() {
     return days
   }
 
-  const eventsOnDate = (dateStr) => events.filter((e) => e.date === dateStr)
+  const eventsOnDate = (dateStr) =>
+    events
+      .filter((e) => e.date === dateStr)
+      .sort((a, b) => {
+        if (a.allDay && !b.allDay) return -1
+        if (!a.allDay && b.allDay) return 1
+        if (!a.allDay && !b.allDay) return (a.startTime || '').localeCompare(b.startTime || '')
+        return 0
+      })
   const dutiesOnDate = (dateStr) => duties.filter((d) => d.startDate <= dateStr && d.endDate >= dateStr)
 
   async function handleAddEvent(e) {
@@ -281,7 +293,7 @@ export default function CalendarPage() {
 
         {/* 일정 추가 폼 */}
         {showForm && (
-          <form onSubmit={handleAddEvent} className="bg-white rounded-2xl border border-[#F8BD0B] p-4 mb-3 space-y-3 shadow-sm">
+          <form onSubmit={handleAddEvent} className="bg-white rounded-2xl border border-[#F8BD0B] p-4 mb-3 space-y-3 shadow-sm overflow-hidden">
             <input
               type="text"
               placeholder="일정 제목"
@@ -295,7 +307,7 @@ export default function CalendarPage() {
               하루 종일
             </label>
             {!allDay && (
-              <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+              <input type="time" value={startTime} onChange={(e) => setStartTime(e.target.value)} className="w-full min-w-0 border border-gray-200 rounded-xl px-3 py-2 text-sm" />
             )}
             <div className="flex gap-2">
               <button type="submit" disabled={submitting} className="flex-1 bg-[#F8BD0B] hover:opacity-80 text-gray-800 font-medium py-2 rounded-xl text-sm disabled:opacity-60">
@@ -317,8 +329,8 @@ export default function CalendarPage() {
                 onChange={(e) => setDutyType(e.target.value)}
                 className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#c8b4f0]"
               >
-                <option value="아침당번">☀️ 아침당번</option>
-                <option value="저녁당번">🌙 저녁당번</option>
+                <option value="아침당번">아침당번</option>
+                <option value="저녁당번">저녁당번</option>
               </select>
               <select
                 value={dutyNickname}
@@ -366,7 +378,7 @@ export default function CalendarPage() {
                 .map(duty => (
                   <div key={duty.id} className="bg-white rounded-2xl border border-purple-200 p-3 flex items-center justify-between shadow-sm">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-purple-200 text-gray-700 flex-shrink-0">☀️ 아침</span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-gray-700 flex-shrink-0 flex items-center gap-1"><Sun className="w-3 h-3" /> 아침</span>
                       <span className="text-sm font-medium text-gray-800 truncate">{duty.nickname}</span>
                     </div>
                     <button onClick={() => handleDeleteDuty(duty.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none ml-1 flex-shrink-0">×</button>
@@ -379,7 +391,7 @@ export default function CalendarPage() {
                 .map(duty => (
                   <div key={duty.id} className="bg-white rounded-2xl border border-purple-200 p-3 flex items-center justify-between shadow-sm">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-purple-200 text-gray-700 flex-shrink-0">🌙 저녁</span>
+                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-sky-100 text-gray-700 flex-shrink-0 flex items-center gap-1"><Moon className="w-3 h-3" /> 저녁</span>
                       <span className="text-sm font-medium text-gray-800 truncate">{duty.nickname}</span>
                     </div>
                     <button onClick={() => handleDeleteDuty(duty.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none ml-1 flex-shrink-0">×</button>
@@ -396,7 +408,10 @@ export default function CalendarPage() {
               <div key={ev.id}>
                 <div className="bg-white rounded-2xl border border-[#F8BD0B] p-3 flex items-start justify-between shadow-sm">
                   <div className="flex-1">
-                    <p className="font-medium text-sm text-gray-800">{ev.title}</p>
+                    <p className="font-medium text-sm text-gray-800">
+                      {ev.title}
+                      {(commentsMap[ev.id] || []).length > 0 && <span className="text-gray-400 font-normal ml-1">({(commentsMap[ev.id] || []).length})</span>}
+                    </p>
                     <p className="text-xs text-gray-400 mt-0.5">
                       {ev.allDay ? '하루 종일' : ev.startTime}
                       {' · '}{ev.createdByName}

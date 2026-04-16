@@ -28,15 +28,18 @@ export default function GroceriesPage() {
   }, [])
 
   useEffect(() => {
-    if (!openCommentId) return
-    const q = query(collection(db, 'groceries', openCommentId, 'comments'), orderBy('createdAt'))
-    return onSnapshot(q, (snap) => {
-      setCommentsMap((prev) => ({
-        ...prev,
-        [openCommentId]: snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-      }))
+    if (items.length === 0) return
+    const unsubs = items.map((item) => {
+      const q = query(collection(db, 'groceries', item.id, 'comments'), orderBy('createdAt'))
+      return onSnapshot(q, (snap) => {
+        setCommentsMap((prev) => ({
+          ...prev,
+          [item.id]: snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+        }))
+      })
     })
-  }, [openCommentId])
+    return () => unsubs.forEach((u) => u())
+  }, [items])
 
   async function handleAdd(e) {
     e.preventDefault()
@@ -174,7 +177,7 @@ export default function GroceriesPage() {
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium ${item.checked ? 'line-through text-gray-400' : 'text-gray-800'}`}>
                     {item.name}
-                    {item.qty && <span className="text-gray-400 font-normal ml-1">({item.qty})</span>}
+                    {(commentsMap[item.id] || []).length > 0 && <span className="text-gray-400 font-normal ml-1">({(commentsMap[item.id] || []).length})</span>}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">{item.createdByName}</p>
                 </div>
