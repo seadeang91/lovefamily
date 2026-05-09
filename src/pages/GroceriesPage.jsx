@@ -177,6 +177,7 @@ export default function GroceriesPage() {
                 <div className="flex-1 min-w-0">
                   <p className={`text-sm font-medium ${item.checked ? 'line-through text-gray-400' : 'text-gray-800'}`}>
                     {item.name}
+                    {parseInt(item.qty) >= 2 && <span className="text-gray-500 font-normal ml-1">{item.qty}개</span>}
                     {(commentsMap[item.id] || []).length > 0 && <span className="text-gray-400 font-normal ml-1">({(commentsMap[item.id] || []).length})</span>}
                   </p>
                   <p className="text-xs text-gray-400 mt-0.5">{item.createdByName}</p>

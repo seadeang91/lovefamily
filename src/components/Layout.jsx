@@ -8,7 +8,7 @@ export default function Layout() {
   const [showNickname, setShowNickname] = useState(false)
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="flex flex-col bg-white" style={{ minHeight: '100dvh' }}>
       {/* Header */}
       <header className="bg-[#ede7f6] text-gray-800 px-4 py-3 flex items-center justify-between shadow-sm">
         <h1 className="text-lg font-bold">🐱 Love Family</h1>
