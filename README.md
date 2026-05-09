@@ -1,5 +1,5 @@
 # lovefamily
-groceries and schedule
+groceries and schedule 
 
 ## 업데이트 방법
 - 맥 터미널에서 claude 명령어 입력
