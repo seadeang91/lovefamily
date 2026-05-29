@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   collection, addDoc, deleteDoc, doc, onSnapshot,
-  query, orderBy, Timestamp
+  query, orderBy, Timestamp, getDocs, where
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import { useAuth } from '../hooks/useAuth'
@@ -150,7 +150,7 @@ export default function CalendarPage() {
     if (!dutyNickname) return
     setDutySubmitting(true)
     try {
-      await addDoc(collection(db, 'duties'), {
+      const base = {
         type: dutyType,
         nickname: dutyNickname,
         startDate: dutyStartDate,
@@ -158,7 +158,20 @@ export default function CalendarPage() {
         createdBy: user.email,
         createdByName: user.displayName || user.email,
         createdAt: Timestamp.now()
+      }
+      const PAIR = { '범고래': '찍찍이', '찍찍이': '범고래' }
+      const otherNickname = PAIR[dutyNickname]
+      const otherType = dutyType === '아침당번' ? '저녁당번' : '아침당번'
+      const snap = await getDocs(query(collection(db, 'duties'), where('type', '==', otherType)))
+      const complementExists = snap.docs.some(d => {
+        const data = d.data()
+        return data.startDate <= dutyEndDate && data.endDate >= dutyStartDate
       })
+      const promises = [addDoc(collection(db, 'duties'), base)]
+      if (otherNickname && !complementExists) {
+        promises.push(addDoc(collection(db, 'duties'), { ...base, type: otherType, nickname: otherNickname }))
+      }
+      await Promise.all(promises)
       setShowDutyForm(false)
     } finally {
       setDutySubmitting(false)
@@ -250,13 +263,14 @@ export default function CalendarPage() {
                   {sortDuties(dayDuties).map((duty) => (
                     <span
                       key={duty.id}
-                      className={`inline-block w-1.5 h-1.5 rounded-full self-center ${(duty.type === '아침당번' || duty.type === '오전당번') ? 'bg-orange-400' : 'bg-sky-400'}`}
+                      className="inline-block w-1.5 h-1.5 rounded-full self-center"
+                      style={{ backgroundColor: duty.nickname === '범고래' ? 'hsl(271,80%,75%)' : 'hsl(25,90%,67%)' }}
                     />
                   ))}
                 </div>
                 {/* 2) 일정 pill - 항상 두 번째 줄 */}
-                {dayEvents.slice(0, 2).map((ev, i) => (
-                  <div key={ev.id} className={`${COLORS[i % COLORS.length]} text-gray-700 rounded px-1 truncate text-center`} style={{ fontSize: '9px' }}>
+                {dayEvents.slice(0, 2).map((ev) => (
+                  <div key={ev.id} className="bg-gray-100 text-gray-700 rounded px-1 truncate text-center" style={{ fontSize: '9px' }}>
                     {ev.title}
                   </div>
                 ))}
