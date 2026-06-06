@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import {
-  collection, addDoc, deleteDoc, doc, onSnapshot,
+  collection, addDoc, deleteDoc, updateDoc, doc, onSnapshot,
   query, orderBy, Timestamp, getDocs, where
 } from 'firebase/firestore'
 import { db } from '../lib/firebase'
@@ -50,6 +50,17 @@ export default function CalendarPage() {
   const [dutyStartDate, setDutyStartDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [dutyEndDate, setDutyEndDate] = useState(dayjs().format('YYYY-MM-DD'))
   const [dutySubmitting, setDutySubmitting] = useState(false)
+
+  // 수정 state
+  const [editingEventId, setEditingEventId] = useState(null)
+  const [editTitle, setEditTitle] = useState('')
+  const [editAllDay, setEditAllDay] = useState(true)
+  const [editStartTime, setEditStartTime] = useState('09:00')
+  const [editingDutyId, setEditingDutyId] = useState(null)
+  const [editDutyType, setEditDutyType] = useState('아침당번')
+  const [editDutyNickname, setEditDutyNickname] = useState('')
+  const [editDutyStartDate, setEditDutyStartDate] = useState('')
+  const [editDutyEndDate, setEditDutyEndDate] = useState('')
 
   // 댓글 state
   const [openCommentId, setOpenCommentId] = useState(null)
@@ -176,6 +187,41 @@ export default function CalendarPage() {
     } finally {
       setDutySubmitting(false)
     }
+  }
+
+  function startEditEvent(ev) {
+    setEditingEventId(ev.id)
+    setEditTitle(ev.title)
+    setEditAllDay(ev.allDay)
+    setEditStartTime(ev.startTime || '09:00')
+  }
+
+  async function handleSaveEvent(id) {
+    if (!editTitle.trim()) return
+    await updateDoc(doc(db, 'events', id), {
+      title: editTitle.trim(),
+      allDay: editAllDay,
+      startTime: editAllDay ? null : editStartTime
+    })
+    setEditingEventId(null)
+  }
+
+  function startEditDuty(duty) {
+    setEditingDutyId(duty.id)
+    setEditDutyType(duty.type)
+    setEditDutyNickname(duty.nickname)
+    setEditDutyStartDate(duty.startDate)
+    setEditDutyEndDate(duty.endDate)
+  }
+
+  async function handleSaveDuty(id) {
+    await updateDoc(doc(db, 'duties', id), {
+      type: editDutyType,
+      nickname: editDutyNickname,
+      startDate: editDutyStartDate,
+      endDate: editDutyEndDate
+    })
+    setEditingDutyId(null)
   }
 
   async function handleDelete(id) {
@@ -390,12 +436,37 @@ export default function CalendarPage() {
               {dutiesOnDate(selectedDate)
                 .filter(d => d.type === '아침당번' || d.type === '오전당번')
                 .map(duty => (
-                  <div key={duty.id} className="bg-white rounded-2xl border border-purple-200 p-3 flex items-center justify-between shadow-sm">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-gray-700 flex-shrink-0 flex items-center gap-1"><Sun className="w-3 h-3" /> 아침</span>
-                      <span className="text-sm font-medium text-gray-800 truncate">{duty.nickname}</span>
-                    </div>
-                    <button onClick={() => handleDeleteDuty(duty.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none ml-1 flex-shrink-0">×</button>
+                  <div key={duty.id} className="bg-white rounded-2xl border border-purple-200 p-3 shadow-sm">
+                    {editingDutyId === duty.id ? (
+                      <div className="space-y-2">
+                        <div className="flex gap-1.5">
+                          <select value={editDutyType} onChange={(e) => setEditDutyType(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300">
+                            <option value="아침당번">아침당번</option>
+                            <option value="저녁당번">저녁당번</option>
+                          </select>
+                          <select value={editDutyNickname} onChange={(e) => setEditDutyNickname(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300">
+                            {members.map((m) => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                        </div>
+                        <div className="flex gap-1 items-center">
+                          <input type="date" value={editDutyStartDate} onChange={(e) => setEditDutyStartDate(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs" />
+                          <span className="text-gray-400 text-xs">~</span>
+                          <input type="date" value={editDutyEndDate} onChange={(e) => setEditDutyEndDate(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs" />
+                        </div>
+                        <div className="flex gap-1.5">
+                          <button onClick={() => handleSaveDuty(duty.id)} className="flex-1 bg-[#c8b4f0] hover:opacity-80 text-gray-800 py-1 rounded-lg text-xs font-medium">저장</button>
+                          <button onClick={() => setEditingDutyId(null)} className="flex-1 bg-gray-100 text-gray-600 py-1 rounded-lg text-xs">취소</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-gray-700 flex-shrink-0 flex items-center gap-1"><Sun className="w-3 h-3" /> 아침</span>
+                          <span onClick={() => startEditDuty(duty)} className="text-sm font-medium text-gray-800 truncate cursor-pointer hover:text-purple-600">{duty.nickname}</span>
+                        </div>
+                        <button onClick={() => handleDeleteDuty(duty.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none ml-1 flex-shrink-0">×</button>
+                      </div>
+                    )}
                   </div>
                 ))}
             </div>
@@ -403,12 +474,37 @@ export default function CalendarPage() {
               {dutiesOnDate(selectedDate)
                 .filter(d => d.type === '저녁당번' || d.type === '오후당번')
                 .map(duty => (
-                  <div key={duty.id} className="bg-white rounded-2xl border border-purple-200 p-3 flex items-center justify-between shadow-sm">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-sky-100 text-gray-700 flex-shrink-0 flex items-center gap-1"><Moon className="w-3 h-3" /> 저녁</span>
-                      <span className="text-sm font-medium text-gray-800 truncate">{duty.nickname}</span>
-                    </div>
-                    <button onClick={() => handleDeleteDuty(duty.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none ml-1 flex-shrink-0">×</button>
+                  <div key={duty.id} className="bg-white rounded-2xl border border-purple-200 p-3 shadow-sm">
+                    {editingDutyId === duty.id ? (
+                      <div className="space-y-2">
+                        <div className="flex gap-1.5">
+                          <select value={editDutyType} onChange={(e) => setEditDutyType(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300">
+                            <option value="아침당번">아침당번</option>
+                            <option value="저녁당번">저녁당번</option>
+                          </select>
+                          <select value={editDutyNickname} onChange={(e) => setEditDutyNickname(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300">
+                            {members.map((m) => <option key={m} value={m}>{m}</option>)}
+                          </select>
+                        </div>
+                        <div className="flex gap-1 items-center">
+                          <input type="date" value={editDutyStartDate} onChange={(e) => setEditDutyStartDate(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs" />
+                          <span className="text-gray-400 text-xs">~</span>
+                          <input type="date" value={editDutyEndDate} onChange={(e) => setEditDutyEndDate(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs" />
+                        </div>
+                        <div className="flex gap-1.5">
+                          <button onClick={() => handleSaveDuty(duty.id)} className="flex-1 bg-[#c8b4f0] hover:opacity-80 text-gray-800 py-1 rounded-lg text-xs font-medium">저장</button>
+                          <button onClick={() => setEditingDutyId(null)} className="flex-1 bg-gray-100 text-gray-600 py-1 rounded-lg text-xs">취소</button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 min-w-0">
+                          <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-sky-100 text-gray-700 flex-shrink-0 flex items-center gap-1"><Moon className="w-3 h-3" /> 저녁</span>
+                          <span onClick={() => startEditDuty(duty)} className="text-sm font-medium text-gray-800 truncate cursor-pointer hover:text-purple-600">{duty.nickname}</span>
+                        </div>
+                        <button onClick={() => handleDeleteDuty(duty.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none ml-1 flex-shrink-0">×</button>
+                      </div>
+                    )}
                   </div>
                 ))}
             </div>
@@ -420,26 +516,52 @@ export default function CalendarPage() {
           <div className="space-y-2">
             {eventsOnDate(selectedDate).map((ev) => (
               <div key={ev.id}>
-                <div className="bg-white rounded-2xl border border-[#F8BD0B] p-3 flex items-start justify-between shadow-sm">
-                  <div className="flex-1">
-                    <p className="font-medium text-sm text-gray-800">
-                      {ev.title}
-                      {(commentsMap[ev.id] || []).length > 0 && <span className="text-gray-400 font-normal ml-1">({(commentsMap[ev.id] || []).length})</span>}
-                    </p>
-                    <p className="text-xs text-gray-400 mt-0.5">
-                      {ev.allDay ? '하루 종일' : ev.startTime}
-                      {' · '}{ev.createdByName}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-1 ml-2">
-                    <button
-                      onClick={() => toggleComment(ev.id)}
-                      className={`text-lg leading-none transition ${openCommentId === ev.id ? 'text-purple-400' : 'text-gray-300 hover:text-purple-400'}`}
-                    >
-                      💬
-                    </button>
-                    <button onClick={() => handleDelete(ev.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none">×</button>
-                  </div>
+                <div className="bg-white rounded-2xl border border-[#F8BD0B] p-3 shadow-sm">
+                  {editingEventId === ev.id ? (
+                    <div className="space-y-2">
+                      <input
+                        type="text"
+                        value={editTitle}
+                        onChange={(e) => setEditTitle(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSaveEvent(ev.id)}
+                        autoFocus
+                        className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F8BD0B]"
+                      />
+                      <label className="flex items-center gap-2 text-sm text-gray-600">
+                        <input type="checkbox" checked={editAllDay} onChange={(e) => setEditAllDay(e.target.checked)} style={{ accentColor: '#F8BD0B' }} />
+                        하루 종일
+                      </label>
+                      {!editAllDay && (
+                        <input type="time" value={editStartTime} onChange={(e) => setEditStartTime(e.target.value)} className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm" />
+                      )}
+                      <div className="flex gap-2">
+                        <button onClick={() => handleSaveEvent(ev.id)} className="flex-1 bg-[#F8BD0B] hover:opacity-80 text-gray-800 font-medium py-1.5 rounded-xl text-sm">저장</button>
+                        <button onClick={() => setEditingEventId(null)} className="flex-1 bg-gray-100 text-gray-600 py-1.5 rounded-xl text-sm">취소</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 cursor-pointer" onClick={() => startEditEvent(ev)}>
+                        <p className="font-medium text-sm text-gray-800 hover:text-yellow-600">
+                          {ev.title}
+                          {(commentsMap[ev.id] || []).length > 0 && <span className="text-gray-400 font-normal ml-1">({(commentsMap[ev.id] || []).length})</span>}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {ev.allDay ? '하루 종일' : ev.startTime}
+                          {' · '}{ev.createdByName}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-1 ml-2">
+                        <button
+                          onClick={() => toggleComment(ev.id)}
+                          className={`text-lg leading-none transition ${openCommentId === ev.id ? 'text-purple-400' : 'text-gray-300 hover:text-purple-400'}`}
+                        >
+                          💬
+                        </button>
+                        <button onClick={() => handleDelete(ev.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none">×</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* 댓글 패널 */}

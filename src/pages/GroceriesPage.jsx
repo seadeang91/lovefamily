@@ -14,6 +14,11 @@ export default function GroceriesPage() {
   const [showForm, setShowForm] = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
+  // 수정 state
+  const [editingItemId, setEditingItemId] = useState(null)
+  const [editName, setEditName] = useState('')
+  const [editQty, setEditQty] = useState('1')
+
   // 댓글 state
   const [openCommentId, setOpenCommentId] = useState(null)
   const [commentsMap, setCommentsMap] = useState({})
@@ -74,6 +79,21 @@ export default function GroceriesPage() {
     if (!confirm('완료된 항목을 모두 삭제할까요?')) return
     const checked = items.filter((i) => i.checked)
     await Promise.all(checked.map((i) => deleteDoc(doc(db, 'groceries', i.id))))
+  }
+
+  function startEditItem(item) {
+    setEditingItemId(item.id)
+    setEditName(item.name)
+    setEditQty(item.qty || '1')
+  }
+
+  async function handleSaveItem(id) {
+    if (!editName.trim()) return
+    await updateDoc(doc(db, 'groceries', id), {
+      name: editName.trim(),
+      qty: editQty.trim() || '1'
+    })
+    setEditingItemId(null)
   }
 
   async function handleAddComment(itemId) {
@@ -161,34 +181,63 @@ export default function GroceriesPage() {
           {items.map((item) => (
             <div key={item.id}>
               <div
-                className={`bg-white rounded-2xl border px-4 py-3 flex items-center gap-3 shadow-sm transition ${
+                className={`bg-white rounded-2xl border px-4 py-3 shadow-sm transition ${
                   item.checked ? 'opacity-50 border-gray-100' : 'border-[#F8BD0B]'
                 }`}
               >
-                <button
-                  onClick={() => toggleCheck(item)}
-                  className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition ${
-                    item.checked ? 'text-gray-800' : 'border-gray-300'
-                  }`}
-                  style={item.checked ? { backgroundColor: '#F8BD0B', borderColor: '#F8BD0B' } : {}}
-                >
-                  {item.checked && <span className="text-xs font-bold">✓</span>}
-                </button>
-                <div className="flex-1 min-w-0">
-                  <p className={`text-sm font-medium ${item.checked ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-                    {item.name}
-                    {parseInt(item.qty) >= 2 && <span className="text-gray-500 font-normal ml-1">{item.qty}개</span>}
-                    {(commentsMap[item.id] || []).length > 0 && <span className="text-gray-400 font-normal ml-1">({(commentsMap[item.id] || []).length})</span>}
-                  </p>
-                  <p className="text-xs text-gray-400 mt-0.5">{item.createdByName}</p>
-                </div>
-                <button
-                  onClick={() => toggleComment(item.id)}
-                  className={`text-lg leading-none transition ${openCommentId === item.id ? 'text-purple-400' : 'text-gray-300 hover:text-purple-400'}`}
-                >
-                  💬
-                </button>
-                <button onClick={() => handleDelete(item.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none">×</button>
+                {editingItemId === item.id ? (
+                  <div className="space-y-2">
+                    <input
+                      type="text"
+                      value={editName}
+                      onChange={(e) => setEditName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && handleSaveItem(item.id)}
+                      autoFocus
+                      className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F8BD0B]"
+                    />
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm text-gray-600 flex-shrink-0">수량</label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={editQty}
+                        onChange={(e) => setEditQty(e.target.value)}
+                        className="w-24 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#F8BD0B]"
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button onClick={() => handleSaveItem(item.id)} className="flex-1 bg-[#F8BD0B] hover:opacity-80 text-gray-800 font-medium py-1.5 rounded-xl text-sm">저장</button>
+                      <button onClick={() => setEditingItemId(null)} className="flex-1 bg-gray-100 text-gray-600 py-1.5 rounded-xl text-sm">취소</button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <button
+                      onClick={() => toggleCheck(item)}
+                      className={`w-6 h-6 rounded-full border-2 flex-shrink-0 flex items-center justify-center transition ${
+                        item.checked ? 'text-gray-800' : 'border-gray-300'
+                      }`}
+                      style={item.checked ? { backgroundColor: '#F8BD0B', borderColor: '#F8BD0B' } : {}}
+                    >
+                      {item.checked && <span className="text-xs font-bold">✓</span>}
+                    </button>
+                    <div className="flex-1 min-w-0 cursor-pointer" onClick={() => startEditItem(item)}>
+                      <p className={`text-sm font-medium ${item.checked ? 'line-through text-gray-400' : 'text-gray-800 hover:text-yellow-600'}`}>
+                        {item.name}
+                        {parseInt(item.qty) >= 2 && <span className="text-gray-500 font-normal ml-1">{item.qty}개</span>}
+                        {(commentsMap[item.id] || []).length > 0 && <span className="text-gray-400 font-normal ml-1">({(commentsMap[item.id] || []).length})</span>}
+                      </p>
+                      <p className="text-xs text-gray-400 mt-0.5">{item.createdByName}</p>
+                    </div>
+                    <button
+                      onClick={() => toggleComment(item.id)}
+                      className={`text-lg leading-none transition ${openCommentId === item.id ? 'text-purple-400' : 'text-gray-300 hover:text-purple-400'}`}
+                    >
+                      💬
+                    </button>
+                    <button onClick={() => handleDelete(item.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none">×</button>
+                  </div>
+                )}
               </div>
 
               {/* 댓글 패널 */}
