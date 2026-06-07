@@ -215,12 +215,7 @@ export default function CalendarPage() {
   }
 
   async function handleSaveDuty(id) {
-    await updateDoc(doc(db, 'duties', id), {
-      type: editDutyType,
-      nickname: editDutyNickname,
-      startDate: editDutyStartDate,
-      endDate: editDutyEndDate
-    })
+    await updateDoc(doc(db, 'duties', id), { nickname: editDutyNickname })
     setEditingDutyId(null)
   }
 
@@ -438,25 +433,12 @@ export default function CalendarPage() {
                 .map(duty => (
                   <div key={duty.id} className="bg-white rounded-2xl border border-purple-200 p-3 shadow-sm">
                     {editingDutyId === duty.id ? (
-                      <div className="space-y-2">
-                        <div className="flex gap-1.5">
-                          <select value={editDutyType} onChange={(e) => setEditDutyType(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300">
-                            <option value="아침당번">아침당번</option>
-                            <option value="저녁당번">저녁당번</option>
-                          </select>
-                          <select value={editDutyNickname} onChange={(e) => setEditDutyNickname(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300">
-                            {members.map((m) => <option key={m} value={m}>{m}</option>)}
-                          </select>
-                        </div>
-                        <div className="flex gap-1 items-center">
-                          <input type="date" value={editDutyStartDate} onChange={(e) => setEditDutyStartDate(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs" />
-                          <span className="text-gray-400 text-xs">~</span>
-                          <input type="date" value={editDutyEndDate} onChange={(e) => setEditDutyEndDate(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs" />
-                        </div>
-                        <div className="flex gap-1.5">
-                          <button onClick={() => handleSaveDuty(duty.id)} className="flex-1 bg-[#c8b4f0] hover:opacity-80 text-gray-800 py-1 rounded-lg text-xs font-medium">저장</button>
-                          <button onClick={() => setEditingDutyId(null)} className="flex-1 bg-gray-100 text-gray-600 py-1 rounded-lg text-xs">취소</button>
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        <select value={editDutyNickname} onChange={(e) => setEditDutyNickname(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300">
+                          {members.map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                        <button onClick={() => handleSaveDuty(duty.id)} className="bg-[#c8b4f0] hover:opacity-80 text-gray-800 px-2 py-1 rounded-lg text-xs font-medium">저장</button>
+                        <button onClick={() => setEditingDutyId(null)} className="bg-gray-100 text-gray-600 px-2 py-1 rounded-lg text-xs">취소</button>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between">
@@ -476,25 +458,12 @@ export default function CalendarPage() {
                 .map(duty => (
                   <div key={duty.id} className="bg-white rounded-2xl border border-purple-200 p-3 shadow-sm">
                     {editingDutyId === duty.id ? (
-                      <div className="space-y-2">
-                        <div className="flex gap-1.5">
-                          <select value={editDutyType} onChange={(e) => setEditDutyType(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300">
-                            <option value="아침당번">아침당번</option>
-                            <option value="저녁당번">저녁당번</option>
-                          </select>
-                          <select value={editDutyNickname} onChange={(e) => setEditDutyNickname(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300">
-                            {members.map((m) => <option key={m} value={m}>{m}</option>)}
-                          </select>
-                        </div>
-                        <div className="flex gap-1 items-center">
-                          <input type="date" value={editDutyStartDate} onChange={(e) => setEditDutyStartDate(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs" />
-                          <span className="text-gray-400 text-xs">~</span>
-                          <input type="date" value={editDutyEndDate} onChange={(e) => setEditDutyEndDate(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs" />
-                        </div>
-                        <div className="flex gap-1.5">
-                          <button onClick={() => handleSaveDuty(duty.id)} className="flex-1 bg-[#c8b4f0] hover:opacity-80 text-gray-800 py-1 rounded-lg text-xs font-medium">저장</button>
-                          <button onClick={() => setEditingDutyId(null)} className="flex-1 bg-gray-100 text-gray-600 py-1 rounded-lg text-xs">취소</button>
-                        </div>
+                      <div className="flex items-center gap-1.5">
+                        <select value={editDutyNickname} onChange={(e) => setEditDutyNickname(e.target.value)} className="flex-1 border border-gray-200 rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-purple-300">
+                          {members.map((m) => <option key={m} value={m}>{m}</option>)}
+                        </select>
+                        <button onClick={() => handleSaveDuty(duty.id)} className="bg-[#c8b4f0] hover:opacity-80 text-gray-800 px-2 py-1 rounded-lg text-xs font-medium">저장</button>
+                        <button onClick={() => setEditingDutyId(null)} className="bg-gray-100 text-gray-600 px-2 py-1 rounded-lg text-xs">취소</button>
                       </div>
                     ) : (
                       <div className="flex items-center justify-between">
