@@ -1,11 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import ScheduleItemForm, { DAYS } from './ScheduleItemForm'
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8) // 8..19
-const ROW_HEIGHT = 32
-const GRID_HEIGHT = (HOURS.length - 1) * ROW_HEIGHT
+const BASE_ROW_HEIGHT = 35.2 // 기존 32px 대비 +10%
+const MIN_ZOOM = 0.6
+const MAX_ZOOM = 2.2
 const PALETTE = [
   '#F7B8B8', // pastel red
   '#F9D3A7', // pastel orange
@@ -39,6 +40,55 @@ export default function WeeklyScheduleModal({ onClose }) {
   const [formItem, setFormItem] = useState(null) // null | 'new' | item
   const [deleteMode, setDeleteMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
+  const [zoom, setZoom] = useState(1)
+  const zoomRef = useRef(1)
+  const gridRef = useRef(null)
+  const pinchState = useRef({ active: false, startDist: 0, startZoom: 1 })
+
+  useEffect(() => {
+    zoomRef.current = zoom
+  }, [zoom])
+
+  useEffect(() => {
+    const el = gridRef.current
+    if (!el) return
+
+    function distance(touches) {
+      return Math.hypot(touches[0].clientX - touches[1].clientX, touches[0].clientY - touches[1].clientY)
+    }
+    function onTouchStart(e) {
+      if (e.touches.length === 2) {
+        pinchState.current = { active: true, startDist: distance(e.touches), startZoom: zoomRef.current }
+      }
+    }
+    function onTouchMove(e) {
+      if (pinchState.current.active && e.touches.length === 2) {
+        e.preventDefault()
+        const scale = distance(e.touches) / pinchState.current.startDist
+        const next = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, pinchState.current.startZoom * scale))
+        zoomRef.current = next
+        setZoom(next)
+      }
+    }
+    function onTouchEnd(e) {
+      if (e.touches.length < 2) pinchState.current.active = false
+    }
+
+    el.addEventListener('touchstart', onTouchStart, { passive: true })
+    el.addEventListener('touchmove', onTouchMove, { passive: false })
+    el.addEventListener('touchend', onTouchEnd, { passive: true })
+    el.addEventListener('touchcancel', onTouchEnd, { passive: true })
+    return () => {
+      el.removeEventListener('touchstart', onTouchStart)
+      el.removeEventListener('touchmove', onTouchMove)
+      el.removeEventListener('touchend', onTouchEnd)
+      el.removeEventListener('touchcancel', onTouchEnd)
+    }
+  }, [])
+
+  const ROW_HEIGHT = BASE_ROW_HEIGHT * zoom
+  const GRID_HEIGHT = (HOURS.length - 1) * ROW_HEIGHT
+  const MIN_ITEM_HEIGHT = Math.max(24, BASE_ROW_HEIGHT * zoom)
 
   useEffect(() => {
     return onSnapshot(doc(db, 'weeklyScheduleSettings', 'main'), (snap) => {
@@ -146,7 +196,7 @@ export default function WeeklyScheduleModal({ onClose }) {
           </button>
         </div>
 
-        <div className="flex text-xs pb-3">
+        <div ref={gridRef} className="flex text-xs pb-3">
           <div style={{ width: 20 }}>
             <div style={{ height: 20 }} />
             <div className="relative" style={{ height: GRID_HEIGHT }}>
@@ -181,7 +231,7 @@ export default function WeeklyScheduleModal({ onClose }) {
                     const top = ((toMinutes(item.startTime) - 8 * 60) / 60) * ROW_HEIGHT
                     const height = Math.max(
                       ((toMinutes(item.endTime) - toMinutes(item.startTime)) / 60) * ROW_HEIGHT,
-                      38
+                      MIN_ITEM_HEIGHT
                     )
                     const selected = selectedIds.has(`${item.id}|${d.key}`)
                     return (
