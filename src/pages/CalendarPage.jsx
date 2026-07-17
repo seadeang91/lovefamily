@@ -224,9 +224,36 @@ export default function CalendarPage() {
     await deleteDoc(doc(db, 'events', id))
   }
 
-  async function handleDeleteDuty(id) {
+  async function handleDeleteDuty(duty, dateStr) {
     if (!confirm('당번을 삭제할까요?')) return
-    await deleteDoc(doc(db, 'duties', id))
+    if (duty.startDate === duty.endDate) {
+      // 하루짜리 당번 → 문서 전체 삭제
+      await deleteDoc(doc(db, 'duties', duty.id))
+    } else if (dateStr === duty.startDate) {
+      // 범위 시작일 삭제 → 시작일만 하루 뒤로 당김
+      await updateDoc(doc(db, 'duties', duty.id), {
+        startDate: dayjs(dateStr).add(1, 'day').format('YYYY-MM-DD')
+      })
+    } else if (dateStr === duty.endDate) {
+      // 범위 종료일 삭제 → 종료일만 하루 앞으로 당김
+      await updateDoc(doc(db, 'duties', duty.id), {
+        endDate: dayjs(dateStr).subtract(1, 'day').format('YYYY-MM-DD')
+      })
+    } else {
+      // 범위 중간 날짜 삭제 → 문서를 앞/뒤 두 개로 분할
+      await updateDoc(doc(db, 'duties', duty.id), {
+        endDate: dayjs(dateStr).subtract(1, 'day').format('YYYY-MM-DD')
+      })
+      await addDoc(collection(db, 'duties'), {
+        type: duty.type,
+        nickname: duty.nickname,
+        startDate: dayjs(dateStr).add(1, 'day').format('YYYY-MM-DD'),
+        endDate: duty.endDate,
+        createdBy: duty.createdBy,
+        createdByName: duty.createdByName,
+        createdAt: Timestamp.now()
+      })
+    }
   }
 
   async function handleAddComment(eventId) {
@@ -446,7 +473,7 @@ export default function CalendarPage() {
                           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-orange-100 text-gray-700 flex-shrink-0 flex items-center gap-1"><Sun className="w-3 h-3" /> 아침</span>
                           <span onClick={() => startEditDuty(duty)} className="text-sm font-medium text-gray-800 truncate cursor-pointer hover:text-purple-600">{duty.nickname}</span>
                         </div>
-                        <button onClick={() => handleDeleteDuty(duty.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none ml-1 flex-shrink-0">×</button>
+                        <button onClick={() => handleDeleteDuty(duty, selectedDate)} className="text-gray-300 hover:text-red-400 text-xl leading-none ml-1 flex-shrink-0">×</button>
                       </div>
                     )}
                   </div>
@@ -471,7 +498,7 @@ export default function CalendarPage() {
                           <span className="text-xs font-medium px-2 py-0.5 rounded-full bg-sky-100 text-gray-700 flex-shrink-0 flex items-center gap-1"><Moon className="w-3 h-3" /> 저녁</span>
                           <span onClick={() => startEditDuty(duty)} className="text-sm font-medium text-gray-800 truncate cursor-pointer hover:text-purple-600">{duty.nickname}</span>
                         </div>
-                        <button onClick={() => handleDeleteDuty(duty.id)} className="text-gray-300 hover:text-red-400 text-xl leading-none ml-1 flex-shrink-0">×</button>
+                        <button onClick={() => handleDeleteDuty(duty, selectedDate)} className="text-gray-300 hover:text-red-400 text-xl leading-none ml-1 flex-shrink-0">×</button>
                       </div>
                     )}
                   </div>
