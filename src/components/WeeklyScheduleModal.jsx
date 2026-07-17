@@ -1,10 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import ScheduleItemForm, { DAYS } from './ScheduleItemForm'
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8) // 8..19
-const BASE_ROW_HEIGHT = 35.2 // 기존 32px 대비 +10%
+const HEADER_ROW_HEIGHT = 20
+const ROW_HEIGHT = 35.2 // 기존 32px 대비 +10%
+const GRID_HEIGHT = (HOURS.length - 1) * ROW_HEIGHT
+const BOTTOM_PADDING = 12
+const CONTENT_HEIGHT = HEADER_ROW_HEIGHT + GRID_HEIGHT + BOTTOM_PADDING
+const MIN_ITEM_HEIGHT = ROW_HEIGHT
 const MIN_ZOOM = 0.6
 const MAX_ZOOM = 2.2
 const PALETTE = [
@@ -41,16 +46,28 @@ export default function WeeklyScheduleModal({ onClose }) {
   const [deleteMode, setDeleteMode] = useState(false)
   const [selectedIds, setSelectedIds] = useState(new Set())
   const [zoom, setZoom] = useState(1)
+  const [naturalWidth, setNaturalWidth] = useState(0)
   const zoomRef = useRef(1)
-  const gridRef = useRef(null)
+  const viewportRef = useRef(null)
   const pinchState = useRef({ active: false, startDist: 0, startZoom: 1 })
 
   useEffect(() => {
     zoomRef.current = zoom
   }, [zoom])
 
+  useLayoutEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+    setNaturalWidth(el.clientWidth)
+    const ro = new ResizeObserver((entries) => {
+      for (const entry of entries) setNaturalWidth(entry.contentRect.width)
+    })
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
   useEffect(() => {
-    const el = gridRef.current
+    const el = viewportRef.current
     if (!el) return
 
     function distance(touches) {
@@ -85,10 +102,6 @@ export default function WeeklyScheduleModal({ onClose }) {
       el.removeEventListener('touchcancel', onTouchEnd)
     }
   }, [])
-
-  const ROW_HEIGHT = BASE_ROW_HEIGHT * zoom
-  const GRID_HEIGHT = (HOURS.length - 1) * ROW_HEIGHT
-  const MIN_ITEM_HEIGHT = Math.max(24, BASE_ROW_HEIGHT * zoom)
 
   useEffect(() => {
     return onSnapshot(doc(db, 'weeklyScheduleSettings', 'main'), (snap) => {
@@ -196,76 +209,90 @@ export default function WeeklyScheduleModal({ onClose }) {
           </button>
         </div>
 
-        <div ref={gridRef} className="flex text-xs pb-3">
-          <div style={{ width: 20 }}>
-            <div style={{ height: 20 }} />
-            <div className="relative" style={{ height: GRID_HEIGHT }}>
-              {HOURS.map((h, i) => (
-                <span
-                  key={h}
-                  className="absolute left-0 text-[9px] text-gray-400"
-                  style={{ top: i * ROW_HEIGHT - 5 }}
-                >
-                  {h}
-                </span>
-              ))}
-            </div>
-          </div>
-
-          {DAYS.map((d) => {
-            const dayItems = items.filter((it) => it.days.includes(d.key))
-            return (
-              <div key={d.key} className="flex-1 min-w-0">
-                <div style={{ height: 20 }} className="text-center font-medium text-gray-600">
-                  {d.label}
-                </div>
-                <div className="relative border-l border-gray-100" style={{ height: GRID_HEIGHT }}>
-                  {HOURS.slice(0, -1).map((h, i) => (
-                    <div
+        <div ref={viewportRef} style={{ overflow: 'auto', maxHeight: '60vh' }}>
+          <div style={{ width: naturalWidth * zoom, height: CONTENT_HEIGHT * zoom, position: 'relative' }}>
+            <div
+              style={{
+                width: naturalWidth || '100%',
+                transform: `scale(${zoom})`,
+                transformOrigin: 'top left',
+                position: 'absolute',
+                top: 0,
+                left: 0
+              }}
+              className="flex text-xs pb-3"
+            >
+              <div style={{ width: 20 }}>
+                <div style={{ height: HEADER_ROW_HEIGHT }} />
+                <div className="relative" style={{ height: GRID_HEIGHT }}>
+                  {HOURS.map((h, i) => (
+                    <span
                       key={h}
-                      className="absolute left-0 right-0 border-t border-gray-100"
-                      style={{ top: i * ROW_HEIGHT }}
-                    />
+                      className="absolute left-0 text-[9px] text-gray-400"
+                      style={{ top: i * ROW_HEIGHT - 5 }}
+                    >
+                      {h}
+                    </span>
                   ))}
-                  {dayItems.map((item) => {
-                    const top = ((toMinutes(item.startTime) - 8 * 60) / 60) * ROW_HEIGHT
-                    const height = Math.max(
-                      ((toMinutes(item.endTime) - toMinutes(item.startTime)) / 60) * ROW_HEIGHT,
-                      MIN_ITEM_HEIGHT
-                    )
-                    const selected = selectedIds.has(`${item.id}|${d.key}`)
-                    return (
-                      <div
-                        key={item.id}
-                        onClick={() => handleItemClick(item, d.key)}
-                        onDoubleClick={() => !deleteMode && setFormItem(item)}
-                        className="absolute left-0.5 right-0.5 rounded-md px-1 overflow-hidden cursor-pointer flex flex-col items-center justify-center text-center"
-                        style={{
-                          top,
-                          height,
-                          backgroundColor: colorForItem(item),
-                          opacity: deleteMode && !selected ? 0.45 : 1
-                        }}
-                      >
-                        {selected && (
-                          <span className="absolute top-0 right-0.5 text-[10px] text-gray-800">✓</span>
-                        )}
-                        <p className="text-[9px] leading-tight text-gray-800 font-medium truncate w-full">
-                          {item.title}
-                        </p>
-                        <p className="text-[7px] leading-none text-gray-600 whitespace-nowrap">
-                          {item.startTime}
-                        </p>
-                        <p className="text-[7px] leading-none text-gray-600 whitespace-nowrap">
-                          ~{item.endTime}
-                        </p>
-                      </div>
-                    )
-                  })}
                 </div>
               </div>
-            )
-          })}
+
+              {DAYS.map((d) => {
+                const dayItems = items.filter((it) => it.days.includes(d.key))
+                return (
+                  <div key={d.key} className="flex-1 min-w-0">
+                    <div style={{ height: HEADER_ROW_HEIGHT }} className="text-center font-medium text-gray-600">
+                      {d.label}
+                    </div>
+                    <div className="relative border-l border-gray-100" style={{ height: GRID_HEIGHT }}>
+                      {HOURS.slice(0, -1).map((h, i) => (
+                        <div
+                          key={h}
+                          className="absolute left-0 right-0 border-t border-gray-100"
+                          style={{ top: i * ROW_HEIGHT }}
+                        />
+                      ))}
+                      {dayItems.map((item) => {
+                        const top = ((toMinutes(item.startTime) - 8 * 60) / 60) * ROW_HEIGHT
+                        const height = Math.max(
+                          ((toMinutes(item.endTime) - toMinutes(item.startTime)) / 60) * ROW_HEIGHT,
+                          MIN_ITEM_HEIGHT
+                        )
+                        const selected = selectedIds.has(`${item.id}|${d.key}`)
+                        return (
+                          <div
+                            key={item.id}
+                            onClick={() => handleItemClick(item, d.key)}
+                            onDoubleClick={() => !deleteMode && setFormItem(item)}
+                            className="absolute left-0.5 right-0.5 rounded-md px-1 overflow-hidden cursor-pointer flex flex-col items-center justify-center text-center"
+                            style={{
+                              top,
+                              height,
+                              backgroundColor: colorForItem(item),
+                              opacity: deleteMode && !selected ? 0.45 : 1
+                            }}
+                          >
+                            {selected && (
+                              <span className="absolute top-0 right-0.5 text-[10px] text-gray-800">✓</span>
+                            )}
+                            <p className="text-[9px] leading-tight text-gray-800 font-medium truncate w-full">
+                              {item.title}
+                            </p>
+                            <p className="text-[7px] leading-none text-gray-600 whitespace-nowrap">
+                              {item.startTime}
+                            </p>
+                            <p className="text-[7px] leading-none text-gray-600 whitespace-nowrap">
+                              ~{item.endTime}
+                            </p>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
         {formItem && (
