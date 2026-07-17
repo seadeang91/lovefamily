@@ -10,7 +10,7 @@ const GRID_HEIGHT = (HOURS.length - 1) * ROW_HEIGHT
 const BOTTOM_PADDING = 12
 const CONTENT_HEIGHT = HEADER_ROW_HEIGHT + GRID_HEIGHT + BOTTOM_PADDING
 const MIN_ITEM_HEIGHT = ROW_HEIGHT
-const MIN_ZOOM = 0.6
+const MIN_ZOOM = 1 // 원래 크기 이하로는 축소되지 않도록 제한
 const MAX_ZOOM = 2.2
 const PALETTE = [
   '#F7B8B8', // pastel red
