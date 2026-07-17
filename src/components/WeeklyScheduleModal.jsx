@@ -209,7 +209,7 @@ export default function WeeklyScheduleModal({ onClose }) {
           </button>
         </div>
 
-        <div ref={viewportRef} style={{ overflow: 'auto', maxHeight: '60vh' }}>
+        <div ref={viewportRef} style={{ overflow: 'auto', height: CONTENT_HEIGHT }}>
           <div style={{ width: naturalWidth * zoom, height: CONTENT_HEIGHT * zoom, position: 'relative' }}>
             <div
               style={{
