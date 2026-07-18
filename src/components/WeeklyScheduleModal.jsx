@@ -3,8 +3,9 @@ import { collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc } from 'fireb
 import { db } from '../lib/firebase'
 import ScheduleItemForm, { DAYS } from './ScheduleItemForm'
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 8) // 8..19
+const HOURS = Array.from({ length: 13 }, (_, i) => i + 8) // 8..20
 const HEADER_ROW_HEIGHT = 20
+const TIME_COL_WIDTH = 20
 const ROW_HEIGHT = 35.2 // 기존 32px 대비 +10%
 const GRID_HEIGHT = (HOURS.length - 1) * ROW_HEIGHT
 const BOTTOM_PADDING = 12
@@ -31,7 +32,7 @@ function toMinutes(time) {
 }
 
 function colorForItem(item) {
-  const key = `${item.startTime}_${item.endTime}_${item.title.trim()}`
+  const key = item.title.trim()
   let hash = 0
   for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0
   return PALETTE[hash % PALETTE.length]
@@ -148,6 +149,8 @@ export default function WeeklyScheduleModal({ onClose }) {
     }
   }
 
+  const dayColWidth = naturalWidth ? (naturalWidth - TIME_COL_WIDTH) / DAYS.length : 0
+
   function handleItemClick(item, dayKey) {
     if (!deleteMode) return
     const key = `${item.id}|${dayKey}`
@@ -210,87 +213,107 @@ export default function WeeklyScheduleModal({ onClose }) {
         </div>
 
         <div ref={viewportRef} style={{ overflow: 'auto', height: CONTENT_HEIGHT }}>
-          <div style={{ width: naturalWidth * zoom, height: CONTENT_HEIGHT * zoom, position: 'relative' }}>
+          <div style={{ width: naturalWidth * zoom }}>
+            <div
+              className="flex text-xs sticky top-0 z-10 bg-white"
+              style={{ height: HEADER_ROW_HEIGHT }}
+            >
+              <div style={{ width: TIME_COL_WIDTH * zoom, flexShrink: 0 }} />
+              {DAYS.map((d) => (
+                <div
+                  key={d.key}
+                  className="text-center font-medium text-gray-600 flex items-center justify-center"
+                  style={{ width: dayColWidth * zoom, flexShrink: 0 }}
+                >
+                  {d.label}
+                </div>
+              ))}
+            </div>
+
             <div
               style={{
-                width: naturalWidth || '100%',
-                transform: `scale(${zoom})`,
-                transformOrigin: 'top left',
-                position: 'absolute',
-                top: 0,
-                left: 0
+                width: naturalWidth * zoom,
+                height: (GRID_HEIGHT + BOTTOM_PADDING) * zoom,
+                position: 'relative'
               }}
-              className="flex text-xs pb-3"
             >
-              <div style={{ width: 20 }}>
-                <div style={{ height: HEADER_ROW_HEIGHT }} />
-                <div className="relative" style={{ height: GRID_HEIGHT }}>
-                  {HOURS.map((h, i) => (
-                    <span
-                      key={h}
-                      className="absolute left-0 text-[9px] text-gray-400"
-                      style={{ top: i * ROW_HEIGHT - 5 }}
-                    >
-                      {h}
-                    </span>
-                  ))}
-                </div>
-              </div>
-
-              {DAYS.map((d) => {
-                const dayItems = items.filter((it) => it.days.includes(d.key))
-                return (
-                  <div key={d.key} className="flex-1 min-w-0">
-                    <div style={{ height: HEADER_ROW_HEIGHT }} className="text-center font-medium text-gray-600">
-                      {d.label}
-                    </div>
-                    <div className="relative border-l border-gray-100" style={{ height: GRID_HEIGHT }}>
-                      {HOURS.slice(0, -1).map((h, i) => (
-                        <div
-                          key={h}
-                          className="absolute left-0 right-0 border-t border-gray-100"
-                          style={{ top: i * ROW_HEIGHT }}
-                        />
-                      ))}
-                      {dayItems.map((item) => {
-                        const top = ((toMinutes(item.startTime) - 8 * 60) / 60) * ROW_HEIGHT
-                        const height = Math.max(
-                          ((toMinutes(item.endTime) - toMinutes(item.startTime)) / 60) * ROW_HEIGHT,
-                          MIN_ITEM_HEIGHT
-                        )
-                        const selected = selectedIds.has(`${item.id}|${d.key}`)
-                        return (
-                          <div
-                            key={item.id}
-                            onClick={() => handleItemClick(item, d.key)}
-                            onDoubleClick={() => !deleteMode && setFormItem(item)}
-                            className="absolute left-0.5 right-0.5 rounded-md px-1 overflow-hidden cursor-pointer flex flex-col items-center justify-center text-center"
-                            style={{
-                              top,
-                              height,
-                              backgroundColor: colorForItem(item),
-                              opacity: deleteMode && !selected ? 0.45 : 1
-                            }}
-                          >
-                            {selected && (
-                              <span className="absolute top-0 right-0.5 text-[10px] text-gray-800">✓</span>
-                            )}
-                            <p className="text-[9px] leading-tight text-gray-800 font-medium truncate w-full">
-                              {item.title}
-                            </p>
-                            <p className="text-[7px] leading-none text-gray-600 whitespace-nowrap">
-                              {item.startTime}
-                            </p>
-                            <p className="text-[7px] leading-none text-gray-600 whitespace-nowrap">
-                              ~{item.endTime}
-                            </p>
-                          </div>
-                        )
-                      })}
-                    </div>
+              <div
+                style={{
+                  width: naturalWidth || '100%',
+                  transform: `scale(${zoom})`,
+                  transformOrigin: 'top left',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0
+                }}
+                className="flex text-xs pb-3"
+              >
+                <div style={{ width: TIME_COL_WIDTH }}>
+                  <div className="relative" style={{ height: GRID_HEIGHT }}>
+                    {HOURS.map((h, i) => (
+                      <span
+                        key={h}
+                        className="absolute left-0 text-[9px] text-gray-400"
+                        style={{ top: i * ROW_HEIGHT - 5 }}
+                      >
+                        {h}
+                      </span>
+                    ))}
                   </div>
-                )
-              })}
+                </div>
+
+                {DAYS.map((d) => {
+                  const dayItems = items.filter((it) => it.days.includes(d.key))
+                  return (
+                    <div key={d.key} className="flex-1 min-w-0">
+                      <div className="relative border-l border-gray-100" style={{ height: GRID_HEIGHT }}>
+                        {HOURS.slice(0, -1).map((h, i) => (
+                          <div
+                            key={h}
+                            className="absolute left-0 right-0 border-t border-gray-100"
+                            style={{ top: i * ROW_HEIGHT }}
+                          />
+                        ))}
+                        {dayItems.map((item) => {
+                          const top = ((toMinutes(item.startTime) - 8 * 60) / 60) * ROW_HEIGHT
+                          const height = Math.max(
+                            ((toMinutes(item.endTime) - toMinutes(item.startTime)) / 60) * ROW_HEIGHT,
+                            MIN_ITEM_HEIGHT
+                          )
+                          const selected = selectedIds.has(`${item.id}|${d.key}`)
+                          return (
+                            <div
+                              key={item.id}
+                              onClick={() => handleItemClick(item, d.key)}
+                              onDoubleClick={() => !deleteMode && setFormItem(item)}
+                              className="absolute left-0.5 right-0.5 rounded-md px-1 overflow-hidden cursor-pointer flex flex-col items-center justify-center text-center"
+                              style={{
+                                top,
+                                height,
+                                backgroundColor: colorForItem(item),
+                                opacity: deleteMode && !selected ? 0.45 : 1
+                              }}
+                            >
+                              {selected && (
+                                <span className="absolute top-0 right-0.5 text-[10px] text-gray-800">✓</span>
+                              )}
+                              <p className="text-[9px] leading-tight text-gray-800 font-medium truncate w-full">
+                                {item.title}
+                              </p>
+                              <p className="text-[7px] leading-none text-gray-600 whitespace-nowrap">
+                                {item.startTime}
+                              </p>
+                              <p className="text-[7px] leading-none text-gray-600 whitespace-nowrap">
+                                ~{item.endTime}
+                              </p>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         </div>

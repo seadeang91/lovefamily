@@ -11,7 +11,7 @@ export const DAYS = [
   { key: 'sat', label: '토' }
 ]
 
-const SELECT_HOURS = Array.from({ length: 12 }, (_, i) => String(i + 8).padStart(2, '0')) // 08..19
+const SELECT_HOURS = Array.from({ length: 13 }, (_, i) => String(i + 8).padStart(2, '0')) // 08..20
 const SELECT_MINUTES = ['00', '10', '20', '30', '40', '50']
 
 function toMinutes(time) {
