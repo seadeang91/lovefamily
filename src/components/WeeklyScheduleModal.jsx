@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { collection, deleteDoc, doc, onSnapshot, setDoc, updateDoc } from 'firebase/firestore'
 import { db } from '../lib/firebase'
 import ScheduleItemForm, { DAYS } from './ScheduleItemForm'
@@ -14,28 +14,21 @@ const MIN_ITEM_HEIGHT = ROW_HEIGHT
 const MIN_ZOOM = 1 // 원래 크기 이하로는 축소되지 않도록 제한
 const MAX_ZOOM = 2.2
 const PALETTE = [
-  '#F7B8B8', // pastel red
-  '#F9D3A7', // pastel orange
-  '#F9EFAE', // pastel yellow
-  '#C6E8B9', // pastel green
-  '#B8E8D9', // pastel mint
-  '#B8D8F0', // pastel blue
-  '#C9C6EE', // pastel indigo
-  '#DCC6EE', // pastel purple
-  '#F0C6E0', // pastel pink
-  '#E4D4B8' // pastel beige
+  '#FBD9D9', // pastel red
+  '#FCE6C9', // pastel orange
+  '#FBF6CC', // pastel yellow
+  '#DCF0D3', // pastel green
+  '#D3F0E7', // pastel mint
+  '#D3E7F7', // pastel blue
+  '#DFDCF6', // pastel indigo
+  '#ECDCF6', // pastel purple
+  '#F8DCEE', // pastel pink
+  '#F1E7D3' // pastel beige
 ]
 
 function toMinutes(time) {
   const [h, m] = time.split(':').map(Number)
   return h * 60 + m
-}
-
-function colorForItem(item) {
-  const key = item.title.trim()
-  let hash = 0
-  for (let i = 0; i < key.length; i++) hash = (hash * 31 + key.charCodeAt(i)) >>> 0
-  return PALETTE[hash % PALETTE.length]
 }
 
 export default function WeeklyScheduleModal({ onClose }) {
@@ -147,6 +140,24 @@ export default function WeeklyScheduleModal({ onClose }) {
     } else {
       setDeleteMode(true)
     }
+  }
+
+  const uniqueTitles = useMemo(() => {
+    const seen = new Set()
+    const list = []
+    for (const it of items) {
+      const t = it.title.trim()
+      if (!seen.has(t)) {
+        seen.add(t)
+        list.push(t)
+      }
+    }
+    return list.sort((a, b) => a.localeCompare(b, 'ko'))
+  }, [items])
+
+  function colorForItem(item) {
+    const idx = uniqueTitles.indexOf(item.title.trim())
+    return PALETTE[idx % PALETTE.length]
   }
 
   const dayColWidth = naturalWidth ? (naturalWidth - TIME_COL_WIDTH) / DAYS.length : 0
