@@ -31,6 +31,67 @@ function toMinutes(time) {
   return h * 60 + m
 }
 
+function hueDistance(i, j) {
+  const d = Math.abs(i - j) % PALETTE.length
+  return Math.min(d, PALETTE.length - d)
+}
+
+// 같은 요일에 함께 등장하는 스케쥴명끼리는 색상 계열이 겹치지 않도록 배정
+function assignColors(items) {
+  const seen = new Set()
+  const titles = []
+  for (const it of items) {
+    const t = it.title.trim()
+    if (!seen.has(t)) {
+      seen.add(t)
+      titles.push(t)
+    }
+  }
+  titles.sort((a, b) => a.localeCompare(b, 'ko'))
+
+  const adjacency = new Map(titles.map((t) => [t, new Set()]))
+  const titlesByDay = new Map()
+  for (const it of items) {
+    const t = it.title.trim()
+    for (const day of it.days || []) {
+      if (!titlesByDay.has(day)) titlesByDay.set(day, new Set())
+      titlesByDay.get(day).add(t)
+    }
+  }
+  for (const dayTitles of titlesByDay.values()) {
+    const arr = [...dayTitles]
+    for (let i = 0; i < arr.length; i++) {
+      for (let j = i + 1; j < arr.length; j++) {
+        adjacency.get(arr[i]).add(arr[j])
+        adjacency.get(arr[j]).add(arr[i])
+      }
+    }
+  }
+
+  const assigned = new Map()
+  for (const t of titles) {
+    const neighborIdxs = [...adjacency.get(t)].map((n) => assigned.get(n)).filter((v) => v !== undefined)
+    if (neighborIdxs.length === 0) {
+      const used = new Set(assigned.values())
+      let idx = 0
+      while (used.has(idx) && idx < PALETTE.length - 1) idx++
+      assigned.set(t, idx)
+      continue
+    }
+    let bestIdx = 0
+    let bestScore = -Infinity
+    for (let idx = 0; idx < PALETTE.length; idx++) {
+      const minDist = Math.min(...neighborIdxs.map((n) => hueDistance(idx, n)))
+      if (minDist > bestScore) {
+        bestScore = minDist
+        bestIdx = idx
+      }
+    }
+    assigned.set(t, bestIdx)
+  }
+  return assigned
+}
+
 export default function WeeklyScheduleModal({ onClose }) {
   const [title, setTitle] = useState('주간 스케쥴표')
   const [editingTitle, setEditingTitle] = useState(false)
@@ -142,21 +203,10 @@ export default function WeeklyScheduleModal({ onClose }) {
     }
   }
 
-  const uniqueTitles = useMemo(() => {
-    const seen = new Set()
-    const list = []
-    for (const it of items) {
-      const t = it.title.trim()
-      if (!seen.has(t)) {
-        seen.add(t)
-        list.push(t)
-      }
-    }
-    return list.sort((a, b) => a.localeCompare(b, 'ko'))
-  }, [items])
+  const colorAssignment = useMemo(() => assignColors(items), [items])
 
   function colorForItem(item) {
-    const idx = uniqueTitles.indexOf(item.title.trim())
+    const idx = colorAssignment.get(item.title.trim()) ?? 0
     return PALETTE[idx % PALETTE.length]
   }
 
