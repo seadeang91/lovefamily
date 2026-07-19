@@ -68,26 +68,35 @@ function assignColors(items) {
     }
   }
 
+  // 인접 요일 수가 많은(색상 구분이 까다로운) 항목부터 배정
+  const order = [...titles].sort((a, b) => {
+    const degDiff = adjacency.get(b).size - adjacency.get(a).size
+    return degDiff !== 0 ? degDiff : a.localeCompare(b, 'ko')
+  })
+
+  const available = Array.from({ length: PALETTE.length }, (_, i) => i)
   const assigned = new Map()
-  for (const t of titles) {
+  for (const t of order) {
     const neighborIdxs = [...adjacency.get(t)].map((n) => assigned.get(n)).filter((v) => v !== undefined)
-    if (neighborIdxs.length === 0) {
-      const used = new Set(assigned.values())
-      let idx = 0
-      while (used.has(idx) && idx < PALETTE.length - 1) idx++
-      assigned.set(t, idx)
-      continue
-    }
-    let bestIdx = 0
-    let bestScore = -Infinity
-    for (let idx = 0; idx < PALETTE.length; idx++) {
-      const minDist = Math.min(...neighborIdxs.map((n) => hueDistance(idx, n)))
-      if (minDist > bestScore) {
-        bestScore = minDist
-        bestIdx = idx
+    let bestIdx
+    if (available.length === 0) {
+      // 팔레트(10색)를 모두 사용한 경우에만 부득이하게 재사용
+      bestIdx = order.indexOf(t) % PALETTE.length
+    } else if (neighborIdxs.length === 0) {
+      bestIdx = available[0]
+    } else {
+      let bestScore = -Infinity
+      for (const idx of available) {
+        const minDist = Math.min(...neighborIdxs.map((n) => hueDistance(idx, n)))
+        if (minDist > bestScore) {
+          bestScore = minDist
+          bestIdx = idx
+        }
       }
     }
     assigned.set(t, bestIdx)
+    const pos = available.indexOf(bestIdx)
+    if (pos !== -1) available.splice(pos, 1)
   }
   return assigned
 }
